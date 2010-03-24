@@ -24,6 +24,13 @@ uint majorbuild = 7;
 uint minorbuild = 0;
 
 double round(double);
+short antshort(uchar *data, int off) {
+  return data[off] + (data[off+1] * 256);
+}
+uint antuint(uchar *data, int off) {
+  return data[off] + (data[off+1] * 256) + (data[off+2] * 256 * 256) + (data[off+3] * 256 * 256 * 256);
+}
+
 
 int gottype;
 int sentauth;
@@ -292,8 +299,8 @@ decode(ushort bloblen, ushort pkttype, ushort pktlen, int dsize, uchar *data)
   case 255:
     memset(model, 0, sizeof model);
     memcpy(model, data+doff+4, dsize-4);
-    part=data[doff]+data[doff+1]*256;
-    ver=data[doff+2]+data[doff+3]*256;
+    part=antshort(data, doff);
+    ver=antshort(data, doff+2);
     printf("%d Part#: %d ver: %d Name: %s\n", pkttype,
            part, ver, model);
     break;
@@ -316,9 +323,9 @@ decode(ushort bloblen, ushort pkttype, ushort pktlen, int dsize, uchar *data)
   case 12:
     printf("%d xfer complete", pkttype);
     for (i = 0; i < pktlen; i += 2)
-      printf(" %u", data[doff+i] + data[doff+i+1]*256);
+      printf(" %u", antshort(data, doff+i));
     printf("\n");
-    switch (data[doff] + data[doff+1]*256) {
+    switch (antshort(data, doff)) {
     case 6:
       // last file completed, add footer and close file
       print_tcx_footer(tcxfile);
@@ -333,8 +340,7 @@ decode(ushort bloblen, ushort pkttype, ushort pktlen, int dsize, uchar *data)
     }
     break;
   case 38:
-    unitid = data[doff] + data[doff+1]*256 +
-      data[doff+2]*256*256 + data[doff+3]*256*256*256;
+    unitid = antuint(data, doff);
     printf("%d unitid %u\n", pkttype, unitid);
     break;
   case 27:
@@ -346,43 +352,40 @@ decode(ushort bloblen, ushort pkttype, ushort pktlen, int dsize, uchar *data)
   case 1066:
     printf("%d ints?", pkttype);
     for (i = 0; i < pktlen; i += 4)
-      printf(" %u", data[doff+i] + data[doff+i+1]*256 +
-             data[doff+i+2]*256*256 + data[doff+i+3]*256*256*256);
+      printf(" %u", antuint(data, doff+i));
     printf("\n");
     break;
   case 14:
     printf("%d time: ", pkttype);
-    printf("%02u-%02u-%u %02u:%02u:%02u\n", data[doff], data[doff+1], data[doff+2] + data[doff+3]*256,
-           data[doff+4], data[doff+6], data[doff+7]);
+    printf("%02u-%02u-%u %02u:%02u:%02u\n", data[doff], data[doff+1], antshort(data, doff+2), data[doff+4], data[doff+6], data[doff+7]);
     break;
   case 17:
     printf("%d position ? ", pkttype);
     for (i = 0; i < pktlen; i += 4)
-      printf(" %u", data[doff+i] + data[doff+i+1]*256 +
-             data[doff+i+2]*256*256 + data[doff+i+3]*256*256*256);
+      printf(" %u", antuint(data, doff+i));
     printf("\n");
     break;
   case 99:
-    printf("%d trackindex %u\n", pkttype, data[doff] + data[doff+1]*256);
+    printf("%d trackindex %u\n", pkttype, antshort(data, doff));
     printf("%d shorts?", pkttype);
     for (i = 0; i < pktlen; i += 2)
-      printf(" %u", data[doff+i] + data[doff+i+1]*256);
+      printf(" %u", antshort(data, doff+i));
     printf("\n");
-    track_id = data[doff] + data[doff+1]*256;
+    track_id = antshort(data, doff);
     break;
   case 990:
     printf("%d track %u lap %u-%u sport %u\n", pkttype,
-           data[doff] + data[doff+1]*256, data[doff+2] + data[doff+3]*256,
-           data[doff+4] + data[doff+5]*256, data[doff+6]);
+           antshort(data, doff), antshort(data, doff+2),
+           antshort(data, doff+4), data[doff+6]);
     printf("%d shorts?", pkttype);
     for (i = 0; i < pktlen; i += 2)
-      printf(" %u", data[doff+i] + data[doff+i+1]*256);
+      printf(" %u", antshort(data, doff+i));
     printf("\n");
-    if (firstlap_id == -1) firstlap_id = data[doff+2] + data[doff+3]*256;
-    if (firsttrack_id == -1) firsttrack_id = data[doff] + data[doff+1]*256;
-    track = (data[doff] + data[doff+1]*256) - firsttrack_id;
+    if (firstlap_id == -1) firstlap_id = antshort(data, doff+2);
+    if (firsttrack_id == -1) firsttrack_id = antshort(data, doff);
+    track = (antshort(data, doff)) - firsttrack_id;
     if (track < MAXTRACK) {
-      firstlap_id_track[track] = data[doff+2] + data[doff+3]*256;
+      firstlap_id_track[track] = antshort(data, doff+2);
       sporttyp_track[track] = data[doff+6];
     } else {
       printf("Error: track and lap data temporary array out of range %u!\n", track);
@@ -391,8 +394,7 @@ decode(ushort bloblen, ushort pkttype, ushort pktlen, int dsize, uchar *data)
   case 1510:
     printf("%d waypoints", pkttype);
     for (i = 0; i < 4 && i < pktlen; i += 4)
-      printf(" %u", data[doff+i] + data[doff+i+1]*256 +
-             data[doff+i+2]*256*256 + data[doff+i+3]*256*256*256);
+      printf(" %u", antuint(data, doff+i));
     printf("\n");
     // if trackpoints are split into more than one message 1510, do not add xml head again
     if (previoustrack_id != track_id) {
@@ -405,8 +407,7 @@ decode(ushort bloblen, ushort pkttype, ushort pktlen, int dsize, uchar *data)
       // use first lap starttime as filename
       lap = firstlap_id_track[track_id-firsttrack_id] - firstlap_id;
       if (dbg) printf("lap %u track_id %u firsttrack_id %u firstlap_id %u\n", lap, track_id, firsttrack_id, firstlap_id);
-      tv_lap = lapbuf[lap][4] + lapbuf[lap][5]*256 +
-        lapbuf[lap][6]*256*256 + lapbuf[lap][7]*256*256*256;
+      tv_lap = antuint(lapbuf[lap], 4);
       ttv = tv_lap + 631065600; // garmin epoch offset
       strftime(tbuf, sizeof tbuf, "%Y-%m-%d-%H%M%S.TCX", localtime(&ttv));
       // open file and start with header of xml file
@@ -414,18 +415,15 @@ decode(ushort bloblen, ushort pkttype, ushort pktlen, int dsize, uchar *data)
       print_tcx_header(tcxfile);
     }
     for (i = 4; i < pktlen; i += 24) {
-      tv = (data[doff+i+8] + data[doff+i+9]*256 +
-            data[doff+i+10]*256*256 + data[doff+i+11]*256*256*256);
-      tv_lap = lapbuf[lap][4] + lapbuf[lap][5]*256 +
-        lapbuf[lap][6]*256*256 + lapbuf[lap][7]*256*256*256;
+      tv = antuint(data, doff+i+8);
+      tv_lap = antuint(lapbuf[lap], 4);
       if ((tv > tv_lap || (tv == tv_lap && lap == (firstlap_id_track[track_id-firsttrack_id] - firstlap_id))) && lap <= lastlap) {
         ttv = tv_lap + 631065600; // garmin epoch offset
         strftime(tbuf, sizeof tbuf, "%Y-%m-%dT%H:%M:%SZ", gmtime(&ttv));
-        tsec = (lapbuf[lap][8] + lapbuf[lap][9]*256 +
-                lapbuf[lap][10]*256*256 + lapbuf[lap][11]*256*256*256);
+        tsec = antuint(lapbuf[lap], 8);
         memcpy((void *)&dist, &lapbuf[lap][12], 4);
         memcpy((void *)&max_speed, &lapbuf[lap][16], 4);
-        cal = lapbuf[lap][36] + lapbuf[lap][37]*256;
+        cal = antshort(lapbuf[lap], 36);
         hr_av = lapbuf[lap][38];
         hr_max = lapbuf[lap][39];
         cad = lapbuf[lap][41];
@@ -506,10 +504,8 @@ decode(ushort bloblen, ushort pkttype, ushort pktlen, int dsize, uchar *data)
       strftime(tbuf, sizeof tbuf, "%Y-%m-%dT%H:%M:%SZ", tmp);  // format for printing
       memcpy((void *)&alt, data+doff+i+12, 4);
       memcpy((void *)&dist, data+doff+i+16, 4);
-      lat = (data[doff+i] + data[doff+i+1]*256 +
-             data[doff+i+2]*256*256 + data[doff+i+3]*256*256*256)*180.0/0x80000000;
-      lon = (data[doff+i+4] + data[doff+i+5]*256 +
-             data[doff+i+6]*256*256 + data[doff+i+7]*256*256*256)*180.0/0x80000000;
+      lat = antuint(data, doff+i)*180.0/0x80000000;
+      lon = antuint(data, doff+i+4)*180.0/0x80000000;
       hr = data[doff+i+20];
       cad = data[doff+i+21];
       u1 = data[doff+i+22];
@@ -583,7 +579,7 @@ decode(ushort bloblen, ushort pkttype, ushort pktlen, int dsize, uchar *data)
     break;
   case 149:
     printf("%d Lap data id: %u %u\n", pkttype,
-           data[doff] + data[doff+1]*256, data[doff+2] + data[doff+3]*256);
+           antshort(data, doff), antshort(data, doff+2));
     if (lap < MAXLAPS) {
       memcpy((void *)&lapbuf[lap][0], data+doff, 48);
       lastlap = lap;
@@ -644,7 +640,7 @@ chevent(uchar chan, uchar event)
     newdata = cbuf[1] & 0x20;
     phase = cbuf[2];
   }
-  cid = cbuf[4]+cbuf[5]*256+cbuf[6]*256*256+cbuf[7]*256*256*256;
+  cid = antuint(cbuf, 4);
   memcpy((void *)&id, cbuf+4, 4);
 
   if (dbg)
@@ -677,7 +673,7 @@ chevent(uchar chan, uchar event)
         fprintf(stderr, "%s BC0 %02x %d %d %d PID %d %d %d %c%c\n",
                 timestamp(),
                 cbuf[0], cbuf[1] & 0xd7, cbuf[2], cbuf[3],
-                cbuf[4]+cbuf[5]*256, cbuf[6], cbuf[7],
+                antshort(cbuf, 4), cbuf[6], cbuf[7],
                 (cbuf[1] & 0x20) ? 'N' : ' ', (cbuf[1] & 0x08) ? 'P' : ' '
                 );
         break;
@@ -691,7 +687,7 @@ chevent(uchar chan, uchar event)
         fprintf(stderr, "%s BCX %02x %d %d %d PID %d %d %d %c%c\n",
                 timestamp(),
                 cbuf[0], cbuf[1] & 0xd7, cbuf[2], cbuf[3],
-                cbuf[4]+cbuf[5]*256, cbuf[6], cbuf[7],
+                antshort(cbuf, 4), cbuf[6], cbuf[7],
                 (cbuf[1] & 0x20) ? 'N' : ' ', (cbuf[1] & 0x08) ? 'P' : ' '
                 );
       default:
@@ -1065,7 +1061,7 @@ revent(uchar chan, uchar event)
     }
     break;
   case MESG_CHANNEL_ID_ID:
-    devid = ebuf[1]+ebuf[2]*256;
+    devid = antshort(ebuf, 1);
     if (mydev == 0 || devid == mydev%65536) {
       if (dbg)
         printf("devid %08x myid %08x\n", devid, myid);
