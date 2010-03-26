@@ -44,7 +44,7 @@ typedef struct {
 
   int startlap;
   int stoplap;
-  
+
   uchar sporttype;
 
 } activity_t;
@@ -54,7 +54,7 @@ int nactivities;
 
 void decodeactivity(activity_t *pactivity, int activitynum, uchar *data) {
   pactivity->activitynum = activitynum;
-  
+
   pactivity->startlap = antshort(data, 2);
   pactivity->stoplap = antshort(data, 4);
 
@@ -75,12 +75,12 @@ typedef struct {
   float tsec; // antuint(lapbuf[lap], 8)
   int cal; // antshort(lapbuf[lap], 36);
   int hr_av; // lapbuf[lap][38];
-  int hr_max; // lapbuf[lap][39];   
+  int hr_max; // lapbuf[lap][39];
   int cad; // lapbuf[lap][41];
 
   int intensity; //lapbuf[lap][40];
   int triggermethod; //lapbuf[lap][42];
-  
+
   float max_speed;
   float dist;
 } lap_t;
@@ -108,7 +108,7 @@ void decodelap(lap_t *plap, int lapnum, uchar *data) {
 void printlap(lap_t *plap) {
   printf("Lap %d:\n", plap->lapnum);
   char tbuf[100];
-  strftime(tbuf, sizeof tbuf, "%Y-%m-%d %H:%M:%S", 
+  strftime(tbuf, sizeof tbuf, "%Y-%m-%d %H:%M:%S",
            localtime(&plap->tv_lap));
   printf(" tv_lap: %s (%ld)\n", tbuf, plap->tv_lap);
   printf(" tsec: %f\n", plap->tsec);
@@ -160,7 +160,7 @@ void decodetrackpoint(trackpoint_t *ptrackpoint, uchar *data) {
 void printtrackpoint(trackpoint_t *ptrackpoint) {
   printf("Trackpoint:\n");
   char tbuf[100];
-  strftime(tbuf, sizeof tbuf, "%Y-%m-%d %H:%M:%S", 
+  strftime(tbuf, sizeof tbuf, "%Y-%m-%d %H:%M:%S",
            localtime(&ptrackpoint->tv));
   printf(" tv: %s (%ld)\n", tbuf, ptrackpoint->tv);
   printf(" alt: %f\n", ptrackpoint->alt);
@@ -277,7 +277,7 @@ char *progname;
 
 // blast and bsize are intertwined with the underlying buffers in antlib.c;
 // we should remove these variables and strengthen the interface.
-uchar *blast = 0; 
+uchar *blast = 0;
 int blsize = 0;
 
 
@@ -289,7 +289,7 @@ ground(double d, int decimals)
   int neg = 0;
   static char res[30];
   ulong ival;
-  ulong l; // hope it doesn't overflow 
+  ulong l; // hope it doesn't overflow
 
   if (d < 0) {
     neg = 1;
@@ -380,7 +380,7 @@ void write_trackpoint(FILE *tcxfile, activity_t *pact, lap_t *plap,
                       trackpoint_t *ptrackpoint) {
   char tbuf[100];
   strftime(tbuf, sizeof tbuf, "%Y-%m-%dT%H:%M:%SZ", gmtime(&ptrackpoint->tv));
-      
+
   fprintf(tcxfile, "          <Trackpoint>\n");
   fprintf(tcxfile, "            <Time>%s</Time>\n",tbuf);
   if (ptrackpoint->lat < 90) {
@@ -432,22 +432,22 @@ void write_trackpoint(FILE *tcxfile, activity_t *pact, lap_t *plap,
 
 
 void write_output_files() {
-  
+
   printf("Writing output files.\n");
   int activity = 0;
   for (activity = 0; activity < MAXACTIVITIES ; activity++) {
-    activity_t *pact = &activitybuf[activity]; 
+    activity_t *pact = &activitybuf[activity];
     if (pact->activitynum == -1) {
       continue;
     }
 
-    int trackpoint = 0;     
+    int trackpoint = 0;
     char tbuf[100];
     FILE *tcxfile = NULL;
     int lap = 0;
-    
+
     // use first lap starttime as filename
-    strftime(tbuf, sizeof tbuf, "%Y-%m-%d-%H%M%S.TCX", 
+    strftime(tbuf, sizeof tbuf, "%Y-%m-%d-%H%M%S.TCX",
              localtime(&lapbuf[pact->startlap].tv_lap));
     // open file and start with header of xml file
     printf("Writing output file for activity %d: %s\n", activity, tbuf);
@@ -455,7 +455,7 @@ void write_output_files() {
     write_tcx_header(tcxfile);
 
     // print the activity header.
-    strftime(tbuf, sizeof tbuf, "%Y-%m-%dT%H:%M:%SZ", 
+    strftime(tbuf, sizeof tbuf, "%Y-%m-%dT%H:%M:%SZ",
              gmtime(&lapbuf[pact->startlap].tv_lap));
 
     fprintf(tcxfile, "    <Activity Sport=\"");
@@ -474,7 +474,7 @@ void write_output_files() {
         printf("Attempt to print uninitialized lap %d.\n", lap);
         exit(1);
       }
-       
+
       strftime(tbuf, sizeof tbuf, "%Y-%m-%dT%H:%M:%SZ", gmtime(&plap->tv_lap));
 
       fprintf(tcxfile, "      <Lap StartTime=\"%s\">\n", tbuf);
@@ -515,7 +515,7 @@ void write_output_files() {
       default: fprintf(tcxfile, "unknown value: %d", plap->triggermethod);
       }
       fprintf(tcxfile, "</TriggerMethod>\n");
-      
+
       // I prefer the average run cadence here than at the end of
       // this lap according windows ANTagent
       if (pact->sporttype == 0) {
@@ -555,7 +555,7 @@ void write_output_files() {
       for (; trackpoint < ntrackpoints[pact->activitynum] ; trackpoint++) {
         trackpoint_t *ptrackpoint = &trackpointbuf[pact->activitynum][trackpoint];
         // trackpoints go inside of laps that they're within timewise.
-        if ((lap < pact->stoplap) && 
+        if ((lap < pact->stoplap) &&
             (ptrackpoint->tv > lapbuf[lap+1].tv_lap)) {
           break;
         }
@@ -563,7 +563,7 @@ void write_output_files() {
       }
       // repeat the last trackpoint in the next lap if it's the same second as
       // this one.
-      if ((trackpoint > 0) && (lap < pact->stoplap) && 
+      if ((trackpoint > 0) && (lap < pact->stoplap) &&
           (trackpointbuf[pact->activitynum][trackpoint-1].tv == lapbuf[lap+1].tv_lap)) {
         trackpoint--;
       }
@@ -745,7 +745,7 @@ void software_decode(ushort bloblen, ushort pkttype, ushort pktlen,
 
 void unknown_decode(ushort bloblen, ushort pkttype, ushort pktlen,
                     int dsize, uchar *data) {
-  // this method is a catch all for the cmds that we don't know how to 
+  // this method is a catch all for the cmds that we don't know how to
   // interpret the results of.
   int doff = 20;
   int i = 0;
@@ -813,7 +813,7 @@ void laps_decode(ushort bloblen, ushort pkttype, ushort pktlen,
       printf("Not enough laps.");
       exit(1);
     }
-        
+
     break;
   default:
     generic_decode(bloblen, pkttype, pktlen, dsize, data);
@@ -940,17 +940,17 @@ void trackpoints_decode(ushort bloblen, ushort pkttype, ushort pktlen,
     for (i = 4; i < pktlen; i += 24) {
       // we should probably clean up this memory at some point.
       ntrackpoints[current_trackpoint_activity]++;
-      trackpointbuf[current_trackpoint_activity] = 
+      trackpointbuf[current_trackpoint_activity] =
         (trackpoint_t *)realloc(trackpointbuf[current_trackpoint_activity], sizeof(trackpoint_t) * ntrackpoints[current_trackpoint_activity]);
 
       if (!trackpointbuf[current_trackpoint_activity]) {
         printf("Unable to allocate trackpoint buffer.\n");
         exit(1);
       }
-      
+
       trackpoint_t *ptrackpoint = &trackpointbuf[current_trackpoint_activity][ntrackpoints[current_trackpoint_activity]-1];
       decodetrackpoint(ptrackpoint, &data[doff+i]);
-      
+
     }
     break;
   default:
@@ -1007,7 +1007,7 @@ chevent(uchar chan, uchar event)
       fprintf(stderr, "%02x", cbuf[i]);
     fprintf(stderr, "\n");
   }
-	
+
   switch (event) {
   case EVENT_RX_BROADCAST:
     lastphase = phase; // store the last phase we see the watch broadcast
@@ -1301,7 +1301,7 @@ chevent(uchar chan, uchar event)
         fprintf(stderr, "Don't know this device %08x != %08x\n", peerdev, mydev);
         exit(1);
       }
-    } 
+    }
 
     if (dbg) printf("continuing after burst\n");
     break;
@@ -1365,8 +1365,8 @@ revent(uchar chan, uchar event)
   case EVENT_RX_FAIL:
     // ignore this
     break;
-    // TODO: somethign better.
-  case 6:
+    // TODO: something better.
+  case 6: // EVENT_TRANSFER_TX_FAILED
     printf("Reacking: %02x %s\n", chan, ackpkt);
     ANT_SendBurstTransferA(chan, ackpkt, strlen((char *)ackpkt)/16);
     break;
@@ -1460,7 +1460,7 @@ int main(int ac, char *av[])
 
   if ((!authfile) || ac)
     usage();
-		
+
   if (!ANT_Init(devnum, 0)) { // should be 115200 but doesn't fit into a short
     fprintf(stderr, "open dev %d failed\n", devnum);
     exit(1);
