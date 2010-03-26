@@ -980,6 +980,10 @@ usage(void)
   exit(1);
 }
 
+static int nacksent = 0;
+static uchar ackpkt[100];
+
+
 uchar
 chevent(uchar chan, uchar event)
 {
@@ -1215,9 +1219,7 @@ chevent(uchar chan, uchar event)
       printf("\n");
     }
     if (sentauth) {
-      static int nacksent = 0;
       char *ackdata;
-      static uchar ackpkt[100];
       // ack the last packet
       ushort bloblen = blast[14]+256*blast[15];
       ushort pkttype = blast[16]+256*blast[17];
@@ -1452,6 +1454,11 @@ revent(uchar chan, uchar event)
     break;
   case EVENT_RX_FAIL:
     // ignore this
+    break;
+    // TODO: somethign better.
+  case 6: // EVENT_TRANSFER_TX_FAILED
+    printf("Reacking: %02x %s\n", chan, ackpkt);
+    ANT_SendBurstTransferA(chan, ackpkt, strlen(ackpkt)/16);
     break;
   default:
     printf("Unhandled response event %02x\n", event);
