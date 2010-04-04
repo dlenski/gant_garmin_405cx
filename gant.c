@@ -1180,7 +1180,7 @@ chevent(uchar chan, uchar event)
     if (dbg) printf("rxfake burst pairing %d blast %ld waitauth %d\n",
                     pairing, (long)blast, waitauth);
     blsize = *(int *)(cbuf+4);
-    memcpy(&blast, cbuf+8, 4);
+    memcpy(&blast, cbuf+4+sizeof(int), sizeof(uchar *));
     if (dbg) {
       printf("fake burst %d %lx ", blsize, (long)blast);
       for (i = 0; i < blsize && i < 64; i++)

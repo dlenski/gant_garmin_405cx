@@ -342,7 +342,7 @@ void get_data(int fd)
               fprintf(stderr, "\n");
             }
             *(int *)(cbufp+4) = blsize;
-            memcpy(cbufp+8, &blast, 4);
+            memcpy(cbufp+4+sizeof(int), &blast, sizeof(uchar *));
             (*cfn)(chan, EVENT_RX_FAKE_BURST);
             free(blast);
             blast = 0;
