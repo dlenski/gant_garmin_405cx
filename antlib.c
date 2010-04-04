@@ -499,7 +499,7 @@ ANT_SetChannelId(uchar chan, ushort dev, uchar devtype, uchar manid)
 }
 
 uchar
-ANT_SetChannelRFFreq(uchar chan, uchar freq)
+ANT_SetChannelRFFreq(uchar chan, uchar freq) 
 {
 	return msg_send2(MESG_CHANNEL_RADIO_FREQ_ID, chan, freq);
 }

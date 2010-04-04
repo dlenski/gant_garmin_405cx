@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <assert.h>
 #include <time.h>
@@ -189,7 +190,7 @@ int donebind = 0;
 int sentgetv;
 char *fname = "garmin";
 
-static char ANTSPT_KEY[] = "A8A423B9F55E63C1"; // ANT+Sport key
+static uchar ANTSPT_KEY[] = "A8A423B9F55E63C1"; // ANT+Sport key
 
 static uchar ebuf[MESG_DATA_SIZE]; // response event data gets stored here
 static uchar cbuf[MESG_DATA_SIZE]; // channel event data gets stored here
@@ -280,13 +281,12 @@ int outfd; // output file
 char *fn = "default_output_file";
 char *progname;
 
-#define BSIZE 8*10000
-//uchar blast[BSIZE]; // should be like that, but not working
-uchar *blast = 0; // first time reading not initialized, but why it is working reading from adr 0?
 
+// blast and bsize are intertwined with the underlying buffers in antlib.c;
+// we should remove these variables and strengthen the interface.
+uchar *blast = 0; 
 int blsize = 0;
-int bused = 0;
-int lseq = -1;
+
 
 /* round a float as garmin does it! */
 /* shoot me for writing this! */
@@ -987,7 +987,6 @@ static uchar ackpkt[100];
 uchar
 chevent(uchar chan, uchar event)
 {
-  uchar seq;
   uchar last;
   uchar status;
   uchar phase;
@@ -1239,19 +1238,19 @@ chevent(uchar chan, uchar event)
           exit(1);
         }
         if (dbg) printf("got type 0, sending ack %s\n", ackdata);
-        sprintf(ackpkt, "440dffff00000000%s", ackdata);
+        sprintf((char *)ackpkt, "440dffff00000000%s", ackdata);
       } else if (bloblen == 65535) {
         // repeat last ack
         if (dbg) printf("repeating ack %s\n", ackpkt);
-        ANT_SendBurstTransferA(chan, ackpkt, strlen(ackpkt)/16);
+        ANT_SendBurstTransferA(chan, ackpkt, strlen((char *)ackpkt)/16);
       } else {
         if (dbg) printf("non-0 bloblen %d\n", bloblen);
         (*cmds[nacksent-1].decode_fn)(bloblen, pkttype, pktlen, blsize, blast);
-        sprintf(ackpkt, "440dffff0000000006000200%02x%02x0000", pkttype%256, pkttype/256);
+        sprintf((char *)ackpkt, "440dffff0000000006000200%02x%02x0000", pkttype%256, pkttype/256);
       }
       if (dbg) printf("received pkttype %d len %d\n", pkttype, pktlen);
       if (dbg) printf("acking %s\n", ackpkt);
-      ANT_SendBurstTransferA(chan, ackpkt, strlen(ackpkt)/16);
+      ANT_SendBurstTransferA(chan, ackpkt, strlen((char *)ackpkt)/16);
     } else if (!nopairing && pairing && blast) {
       memcpy(&peerdev, blast+12, 4);
       if (dbg)
@@ -1310,7 +1309,6 @@ chevent(uchar chan, uchar event)
       gotwatchid = 1;
       // garmin sending authentication/identification data
       if (!once) {
-        int i;
         once = 1;
         if (dbg)
           fprintf(stderr, "id data: ");
@@ -1401,7 +1399,6 @@ chevent(uchar chan, uchar event)
 uchar
 revent(uchar chan, uchar event)
 {
-  struct ack_msg ack;
   int i;
 
   if (dbg) printf("revent %02x %02x\n", chan, event);
@@ -1458,7 +1455,7 @@ revent(uchar chan, uchar event)
     // TODO: somethign better.
   case 6:
     printf("Reacking: %02x %s\n", chan, ackpkt);
-    ANT_SendBurstTransferA(chan, ackpkt, strlen(ackpkt)/16);
+    ANT_SendBurstTransferA(chan, ackpkt, strlen((char *)ackpkt)/16);
     break;
   default:
     printf("Unhandled response event %02x\n", event);
@@ -1467,7 +1464,7 @@ revent(uchar chan, uchar event)
   return 1;
 }
 
-main(int ac, char *av[])
+int main(int ac, char *av[])
 {
   int devnum = 0;
   int chan = 0;
