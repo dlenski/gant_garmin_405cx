@@ -195,12 +195,8 @@ static uchar ANTSPT_KEY[] = "A8A423B9F55E63C1"; // ANT+Sport key
 static uchar ebuf[MESG_DATA_SIZE]; // response event data gets stored here
 static uchar cbuf[MESG_DATA_SIZE]; // channel event data gets stored here
 
-int passive;
-int semipassive;
 int verbose;
 
-int downloadfinished = 0;
-int downloadstarted = 0;
 int sentid = 0;
 
 uint mydev = 0;
@@ -271,14 +267,11 @@ garmin_decode_t cmds[] = {
   { "0a000200ac020000", &unknown_decode },
   { "", NULL },
 };
-int sentcmd;
 
-uchar clientid[3][8];
+
 
 int authfd = -1;
 char *authfile;
-int outfd; // output file
-char *fn = "default_output_file";
 char *progname;
 
 
@@ -987,7 +980,6 @@ static uchar ackpkt[100];
 uchar
 chevent(uchar chan, uchar event)
 {
-  uchar last;
   uchar status;
   uchar phase;
   uint newdata;
@@ -1088,11 +1080,6 @@ chevent(uchar chan, uchar event)
         ANT_SetChannelRFFreq(chan, newfreq);
         newfreq = 0;
       }
-      // phase 0 seen after reset at end of download
-      if (downloadfinished) {
-        fprintf(stderr, "finished\n");
-        exit(0);
-      }
       // generate a random id if pairing and user didn't specify one
       if (pairing && !myid) {
         myid = randno();
@@ -1166,17 +1153,6 @@ chevent(uchar chan, uchar event)
       break;
     case 2:
       // successfully authenticated
-      if (!downloadstarted) {
-        downloadstarted = 1;
-        if (dbg) printf("starting download\n");
-        ack.code = 0x44; ack.atype = 6; ack.c1 = 0x01; ack.c2 = 0x00; ack.id = 0;
-        //ANT_SendAcknowledgedData(chan, (void *)&ack); // tell garmin to start upload
-      }
-      if (downloadfinished) {
-        if (dbg) printf("finished download\n");
-        ack.code = 0x44; ack.atype = 3; ack.c1 = 0x00; ack.c2 = 0x00; ack.id = 0;
-        if (!passive) ANT_SendAcknowledgedData(chan, (void *)&ack); // tell garmin we're finished
-      }
       break;
     case 3:
       if (pairing) {
@@ -1325,71 +1301,8 @@ chevent(uchar chan, uchar event)
         fprintf(stderr, "Don't know this device %08x != %08x\n", peerdev, mydev);
         exit(1);
       }
-    } else if (lastphase == 2) {
-      int nw;
-      static int once = 0;
-      printf("once %d\n", once);
-      // garmin uploading in response to sendack3
-      // in this state we're receiving the workout data
-      if (!once) {
-        printf("receiving\n");
-        once = 1;
-        outfd = open(fn, O_WRONLY|O_CREAT, 0644);
-        if (outfd < 0) {
-          perror(fn);
-          exit(1);
-        }
-      }
-      if (last) {
-        nw = write(outfd, blast, blsize);
-        if (nw != blsize) {
-          fprintf(stderr, "data write failed fd %d %d\n", outfd, nw);
-          perror("write");
-          exit(1);
-        }
-        close(outfd);
-        downloadfinished = 1;
-      }
-    } else if (0 && last) {
-      if (dbg) {
-        fprintf(stderr, "auth response: ");
-        for (i = 0; i < blsize; i++)
-          fprintf(stderr, "%02x", cbuf[i]);
-        fprintf(stderr, "\n");
-      }
-      if (blast[10] == 2) {
-        fprintf(stderr, "authentication failed\n");
-        exit(1);
-      }
-    } else if (last) {
-      fprintf(stderr, "data in state xx: ");
-      int i;
-      for (i = 0; i < blsize; i++)
-        fprintf(stderr, "%02x", blast[i]);
-      fprintf(stderr, "\n");
-      sentcmd = 1000;
-      switch (sentcmd) {
-      case 1000:
-        break;
-      case 0:
-        sentcmd++;
-        //ANT_SendBurstTransferA(chan, getgpsver, strlen(getgpsver)/16);
-        break;
-      case 999:
-        printf("finished\n");
-        exit(1);
-      default:
-        sleep(1);
-        sentcmd = 1;
-        //printf("sending command %d %s\n", sentcmd-1, cmds[sentcmd-1]);
-        //ANT_SendBurstTransferA(chan, cmds[sentcmd-1],
-        //	strlen(cmds[sentcmd-1])/16);
-        sentcmd++;
-        //if(!strcmp(cmds[sentcmd-1], "END"))
-        //	sentcmd = 999;
-        break;
-      }
-    }
+    } 
+
     if (dbg) printf("continuing after burst\n");
     break;
   }
@@ -1487,16 +1400,13 @@ int main(int ac, char *av[])
       sprintf(authfile, "%s/.gant", getenv("HOME"));
   }
   progname = av[0];
-  while ((c = getopt(ac, av, "a:o:d:i:m:PpvDrnzf:")) != -1) {
+  while ((c = getopt(ac, av, "a:d:i:m:vDrnzf:")) != -1) {
     switch(c) {
     case 'a':
       authfile = optarg;
       break;
     case 'f':
       fname = optarg;
-      break;
-    case 'o':
-      fn = optarg;
       break;
     case 'd':
       devnum = atoi(optarg);
@@ -1506,13 +1416,6 @@ int main(int ac, char *av[])
       break;
     case 'm':
       mydev = atoi(optarg);
-      break;
-    case 'p':
-      passive = 1;
-      semipassive = 0;
-      break;
-    case 'P':
-      passive = 1;
       break;
     case 'v':
       verbose = 1;
@@ -1555,7 +1458,7 @@ int main(int ac, char *av[])
   }
   nlaps = 0;
 
-  if ((!passive && !authfile) || ac)
+  if ((!authfile) || ac)
     usage();
 		
   if (!ANT_Init(devnum, 0)) { // should be 115200 but doesn't fit into a short
