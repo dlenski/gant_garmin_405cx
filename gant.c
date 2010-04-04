@@ -29,7 +29,6 @@ uint minorbuild = 0;
 // dynamically.
 #define MAXLAPS 2048 // max of saving laps data before output with trackpoint data
 #define MAXACTIVITIES 2048 // max number of activities
-#define MAXTRACKPOINTS 2048 // max trackpoints per track.
 
 double round(double);
 short antshort(uchar *data, int off) {
@@ -135,8 +134,8 @@ typedef struct {
   int u2;
 } trackpoint_t;
 
-trackpoint_t trackpointbuf[MAXACTIVITIES][MAXTRACKPOINTS];
-int ntrackpoints[MAXACTIVITIES];
+trackpoint_t *trackpointbuf[MAXACTIVITIES]; //trackpoints per activity.
+int ntrackpoints[MAXACTIVITIES]; // # of trackpoints per activity.
 int ntotal_trackpoints;
 int current_trackpoint_activity;
 
@@ -946,15 +945,19 @@ void trackpoints_decode(ushort bloblen, ushort pkttype, ushort pktlen,
       printf(" %u", antuint(data, doff+i));
     printf("\n");
     for (i = 4; i < pktlen; i += 24) {
-      if (ntrackpoints[current_trackpoint_activity] >= MAXTRACKPOINTS) {
-        printf("Not enough trackpoints.\n");
+      // we should probably clean up this memory at some point.
+      ntrackpoints[current_trackpoint_activity]++;
+      trackpointbuf[current_trackpoint_activity] = 
+        (trackpoint_t *)realloc(trackpointbuf[current_trackpoint_activity], sizeof(trackpoint_t) * ntrackpoints[current_trackpoint_activity]);
+
+      if (!trackpointbuf[current_trackpoint_activity]) {
+        printf("Unable to allocate trackpoint buffer.\n");
         exit(1);
       }
       
-      trackpoint_t *ptrackpoint = 
-        &trackpointbuf[current_trackpoint_activity][ntrackpoints[current_trackpoint_activity]];
+      trackpoint_t *ptrackpoint = &trackpointbuf[current_trackpoint_activity][ntrackpoints[current_trackpoint_activity]-1];
       decodetrackpoint(ptrackpoint, &data[doff+i]);
-      ntrackpoints[current_trackpoint_activity]++;
+      
     }
     break;
   default:
@@ -1537,7 +1540,7 @@ main(int ac, char *av[])
     activitybuf[i].activitynum = -1;
 
     ntrackpoints[i] = 0;
-    memset(&trackpointbuf[i], 0, sizeof(trackpoint_t) * MAXTRACKPOINTS);
+    trackpointbuf[i] = NULL;
   }
   nactivities = 0;
   ntotal_trackpoints = 0;
