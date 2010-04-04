@@ -41,4 +41,27 @@ typedef uchar (*CHANNEL_EVENT_FUNC)(uchar chan, uchar event);
 #define RESPONSE_NO_ERROR		0x00
 #define EVENT_RX_FAIL			0x02
 
+uchar ANT_ResetSystem(void);
+uchar ANT_Cmd55(uchar chan);
+uchar ANT_OpenRxScanMode(uchar chan);
+uchar ANT_Initf(char *devname, ushort baud);
+uchar ANT_Init(uchar devno, ushort baud);
+uchar ANT_RequestMessage(uchar chan, uchar mesg);
+uchar ANT_SetNetworkKeya(uchar net, uchar *key);
+uchar ANT_AssignChannel(uchar chan, uchar chtype, uchar net);
+uchar ANT_UnAssignChannel(uchar chan);
+uchar ANT_SetChannelId(uchar chan, ushort dev, uchar devtype, uchar manid);
+uchar ANT_SetChannelRFFreq(uchar chan, uchar freq);
+uchar ANT_SetChannelPeriod(uchar chan, ushort period);
+uchar ANT_SetChannelSearchTimeout(uchar chan, uchar timeout);
+uchar ANT_SetSearchWaveform(uchar chan, ushort waveform);
+uchar ANT_SendAcknowledgedDataA(uchar chan, uchar *data);
+uchar ANT_SendAcknowledgedData(uchar chan, uchar *data);
+ushort ANT_SendBurstTransferA(uchar chan, uchar *data, ushort numpkts);
+ushort ANT_SendBurstTransfer(uchar chan, uchar *data, ushort numpkts);
+uchar ANT_OpenChannel(uchar chan);
+uchar ANT_CloseChannel(uchar chan);
+void ANT_AssignResponseFunction(RESPONSE_FUNC rf, uchar* rbuf);
+void ANT_AssignChannelEventFunction(uchar chan, CHANNEL_EVENT_FUNC rf, uchar* rbuf);
+int ANT_fd();
 /* vim: se sw=8 ts=8: */
