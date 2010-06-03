@@ -264,9 +264,13 @@ garmin_decode_t cmds[] = {
   { "0a000200c2010000", &activities_decode }, // download activities  - 27 (#runs), 990?, 12?
   { "0a00020075000000", &laps_decode }, // download laps - 27 (#laps), 149 laps, 12?
   { "0a00020006000000", &trackpoints_decode }, // download trackpoints - 1510/99(run marker), ..1510,12
-  { "0a000200ac020000", &unknown_decode },
+  //  { "0a000200ac020000", &unknown_decode }, // don't seem to need this.
   { "", NULL },
 };
+
+static int nlastcompletedcmd = -1;
+static int nacksent = 0;
+static uchar ackpkt[100];
 
 
 
@@ -432,7 +436,6 @@ void write_trackpoint(FILE *tcxfile, activity_t *pact, lap_t *plap,
 
 
 void write_output_files() {
-
   printf("Writing output files.\n");
   int activity = 0;
   for (activity = 0; activity < MAXACTIVITIES ; activity++) {
@@ -643,6 +646,13 @@ void version_decode(ushort bloblen, ushort pkttype, ushort pktlen,
   char model[256];
   char gpsver[256];
   printf("version decode %d %d %d %d\n", bloblen, pkttype, pktlen, dsize);
+
+  // any response here allows us to move forward.
+  if (nacksent > nlastcompletedcmd) {
+    printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+    nlastcompletedcmd = nacksent;
+  }
+
   switch (pkttype) {
   case 255:
     memset(model, 0, sizeof model);
@@ -672,6 +682,13 @@ void name_decode(ushort bloblen, ushort pkttype, ushort pktlen,
                     int dsize, uchar *data) {
   int doff = 20;
   printf("name decode %d %d %d %d\n", bloblen, pkttype, pktlen, dsize);
+
+  // any response here allows us to move forward.
+  if (nacksent > nlastcompletedcmd) {
+    printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+    nlastcompletedcmd = nacksent;
+  }
+
   switch (pkttype) {
   case 525:
     memset(devname, 0, sizeof devname);
@@ -687,6 +704,13 @@ void unit_decode(ushort bloblen, ushort pkttype, ushort pktlen,
                     int dsize, uchar *data) {
   int doff = 20;
   printf("unit decode %d %d %d %d\n", bloblen, pkttype, pktlen, dsize);
+
+  // any response here allows us to move forward.
+  if (nacksent > nlastcompletedcmd) {
+    printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+    nlastcompletedcmd = nacksent;
+  }
+
   switch (pkttype) {
   case 38:
     unitid = antuint(data, doff);
@@ -702,6 +726,13 @@ void position_decode(ushort bloblen, ushort pkttype, ushort pktlen,
   int doff = 20;
   int i = 0;
   printf("position decode %d %d %d %d\n", bloblen, pkttype, pktlen, dsize);
+
+  // any response here allows us to move forward.
+  if (nacksent > nlastcompletedcmd) {
+    printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+    nlastcompletedcmd = nacksent;
+  }
+
   switch (pkttype) {
   case 17:
     printf("%d position ? ", pkttype);
@@ -718,6 +749,13 @@ void time_decode(ushort bloblen, ushort pkttype, ushort pktlen,
                     int dsize, uchar *data) {
   int doff = 20;
   printf("time decode %d %d %d %d\n", bloblen, pkttype, pktlen, dsize);
+
+  // any response here allows us to move forward.
+  if (nacksent > nlastcompletedcmd) {
+    printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+    nlastcompletedcmd = nacksent;
+  }
+
   switch (pkttype) {
   case 14:
     printf("%d time: ", pkttype);
@@ -732,6 +770,13 @@ void software_decode(ushort bloblen, ushort pkttype, ushort pktlen,
                     int dsize, uchar *data) {
   int doff = 20;
   printf("software decode %d %d %d %d\n", bloblen, pkttype, pktlen, dsize);
+
+  // any response here allows us to move forward.
+  if (nacksent > nlastcompletedcmd) {
+    printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+    nlastcompletedcmd = nacksent;
+  }
+
   switch (pkttype) {
   case 247:
     memset(modelname, 0, sizeof modelname);
@@ -750,6 +795,13 @@ void unknown_decode(ushort bloblen, ushort pkttype, ushort pktlen,
   int doff = 20;
   int i = 0;
   printf("unknown decode %d %d %d %d\n", bloblen, pkttype, pktlen, dsize);
+
+  // any response here allows us to move forward.
+  if (nacksent > nlastcompletedcmd) {
+    printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+    nlastcompletedcmd = nacksent;
+  }
+
   switch (pkttype) {
   case 1523:
   case 994:
@@ -774,18 +826,25 @@ void laps_decode(ushort bloblen, ushort pkttype, ushort pktlen,
   switch (pkttype) {
   case 12:
     printf("%d xfer complete", pkttype);
+
     for (i = 0; i < pktlen; i += 2)
       printf(" %u", antshort(data, doff+i));
     printf("\n");
     // don't know what to do with the code here
     // antshort(data, doff);
 
+    // only allow completion if we get packet type 12.
+    if (nacksent > nlastcompletedcmd) {
+      printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+      nlastcompletedcmd = nacksent;
+    }
+
     // make sure we got all the laps.
     for (i = 0 ; i < MAXLAPS ; i++) {
       if (lapbuf[i].lapnum != -1) {
-        if (dbg) {
-          printlap(&lapbuf[i]);
-        }
+        //        if (dbg) {
+        //          printlap(&lapbuf[i]);
+        //        }
         found_laps++;
       }
     }
@@ -830,18 +889,27 @@ void activities_decode(ushort bloblen, ushort pkttype, ushort pktlen,
   switch (pkttype) {
   case 12:
     printf("%d xfer complete", pkttype);
+
     for (i = 0; i < pktlen; i += 2)
       printf(" %u", antshort(data, doff+i));
     printf("\n");
+
+
+    // only allow completion if we get packet type 12.
+    if (nacksent > nlastcompletedcmd) {
+      printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+      nlastcompletedcmd = nacksent;
+    }
+
     // don't know what to do with the code here
     // antshort(data, doff);
 
-    // make sure we got all the laps.
+    // make sure we got all the activites.
     for (i = 0 ; i < MAXACTIVITIES ; i++) {
       if (activitybuf[i].activitynum != -1) {
-        if (dbg) {
-          printactivity(&activitybuf[i]);
-        }
+        //        if (dbg) {
+        //          printactivity(&activitybuf[i]);
+        //        }
         found_activities++;
       }
     }
@@ -884,32 +952,39 @@ void trackpoints_decode(ushort bloblen, ushort pkttype, ushort pktlen,
                     int dsize, uchar *data) {
   int doff = 20;
   int i = 0;
-  int j = 0;
+  //int j = 0;
   int found_trackpoints = 0;
   printf("trackpoints decode %d %d %d %d\n", bloblen, pkttype, pktlen, dsize);
   switch (pkttype) {
   case 12:
     printf("%d xfer complete", pkttype);
+
     for (i = 0; i < pktlen; i += 2)
       printf(" %u", antshort(data, doff+i));
     printf("\n");
     // don't know what to do with the code here
     // antshort(data, doff);
 
+    // only allow completion if we get packet type 12.
+    if (nacksent > nlastcompletedcmd) {
+      printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+      nlastcompletedcmd = nacksent;
+    }
+
     // make sure we got all the trackpoints.
     for (i = 0 ; i < MAXACTIVITIES ; i++) {
       found_trackpoints += ntrackpoints[i];
       if (ntrackpoints[i] > 0) {
         printf("%d trackpoints for activity %d\n", ntrackpoints[i], i);
-        for (j = 0 ; j < ntrackpoints[i] ; j++) {
-          if (dbg) {
-            printtrackpoint(&trackpointbuf[i][j]);
-          }
-        }
+        //        for (j = 0 ; j < ntrackpoints[i] ; j++) {
+        //          if (dbg) {
+        //            printtrackpoint(&trackpointbuf[i][j]);
+        //          }
+        //}
       }
     }
     // TODO: fix
-    if (ntotal_trackpoints == found_trackpoints + nactivities) {
+    if (ntotal_trackpoints == (found_trackpoints + nactivities)) {
       printf("All trackpoints received (%d).\n", found_trackpoints);
     }
     else {
@@ -931,6 +1006,13 @@ void trackpoints_decode(ushort bloblen, ushort pkttype, ushort pktlen,
   case 27:
     ntotal_trackpoints = antshort(data, doff);
     printf("%d trackpoints %u\n", pkttype, ntotal_trackpoints);
+    int i = 0;
+    for (i = 0 ; i < MAXACTIVITIES ; i++) {
+      ntrackpoints[i] = 0;
+      free(trackpointbuf[i]);
+      trackpointbuf[i] = NULL;
+    }
+    current_trackpoint_activity = -1;
     break;
   case 1510:
     printf("%d trackpoints", pkttype);
@@ -972,10 +1054,6 @@ usage(void)
           );
   exit(1);
 }
-
-static int nacksent = 0;
-static uchar ackpkt[100];
-
 
 uchar
 chevent(uchar chan, uchar event)
@@ -1199,22 +1277,33 @@ chevent(uchar chan, uchar event)
       ushort bloblen = blast[14]+256*blast[15];
       ushort pkttype = blast[16]+256*blast[17];
       ushort pktlen = blast[18]+256*blast[19];
+      if (dbg) printf("bloblen %d, nacksent %d nlastcompleted %d\n",
+                      bloblen, nacksent, nlastcompletedcmd);
       if (bloblen == 0) {
-        if (dbg) printf("bloblen %d, get next data\n", bloblen);
-        // request next set of data
-        ackdata = cmds[nacksent++].cmd;
-        if (!strcmp(ackdata, "")) { // finished
-          printf("cmds finished, resetting\n");
-          ack.code = 0x44; ack.atype = 3; ack.c1 = 0x00;
-          ack.c2 = 0x00; ack.id = 0;
-          ANT_SendAcknowledgedData(chan, (void *)&ack); // go to idle
+        if ((nacksent == 0) || (nacksent <= nlastcompletedcmd)) {
+          if (dbg) printf("bloblen %d, get next data\n", bloblen);
+          // request next set of data
+          ackdata = cmds[nacksent].cmd;
+          nacksent++;
+          printf("Advancing to command %d\n", nacksent);
+          if (!strcmp(ackdata, "")) { // finished
+            printf("cmds finished, resetting\n");
+            ack.code = 0x44; ack.atype = 3; ack.c1 = 0x00;
+            ack.c2 = 0x00; ack.id = 0;
+            ANT_SendAcknowledgedData(chan, (void *)&ack); // go to idle
 
-          write_output_files();
-          sleep(1);
-          exit(1);
+            write_output_files();
+            sleep(1);
+            exit(1);
+          }
+        }
+        else {
+          printf("Got 0 before complete; reacking %d\n", nacksent);
+          ackdata = cmds[nacksent-1].cmd;
         }
         if (dbg) printf("got type 0, sending ack %s\n", ackdata);
         sprintf((char *)ackpkt, "440dffff00000000%s", ackdata);
+
       } else if (bloblen == 65535) {
         // repeat last ack
         if (dbg) printf("repeating ack %s\n", ackpkt);
