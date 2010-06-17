@@ -127,6 +127,7 @@ typedef struct {
   time_t tv;
   float alt;
   float dist;
+  char haspos;
   double lat;
   double lon;
   int hr;
@@ -143,14 +144,32 @@ int current_trackpoint_activity;
 void decodetrackpoint(trackpoint_t *ptrackpoint, uchar *data) {
   ptrackpoint->tv = antuint(data, 8) + GARMIN_TIME_EPOCH;
 
-  memcpy((void *)&ptrackpoint->alt, data+12, 4);
-  memcpy((void *)&ptrackpoint->dist, data+16, 4);
-  ptrackpoint->lat = antuint(data, 0)*180.0/0x80000000;
-  ptrackpoint->lon = antuint(data, 4)*180.0/0x80000000;
-  // keep lon between -180 - 180
-  if (ptrackpoint->lon > 180) {
-    ptrackpoint->lon = ptrackpoint->lon - 360;
+  if ((antuint(data, 0) != (uint)2147483647) ||
+      (antuint(data, 4) != (uint)2147483647)) {
+    ptrackpoint->haspos = 1;
+    ptrackpoint->lat = antuint(data, 0)*180.0/0x80000000;
+    ptrackpoint->lon = antuint(data, 4)*180.0/0x80000000;
+
+    // keep lon between -180 - 180
+    if (ptrackpoint->lon > 180) {
+      ptrackpoint->lon = ptrackpoint->lon - 360;
+    }
+    // keep lat between -90 - 90
+    if (ptrackpoint->lat > 90) {
+      ptrackpoint->lat = ptrackpoint->lat - 360;
+    }
+
+    memcpy((void *)&ptrackpoint->alt, data+12, 4);
   }
+  else {
+    ptrackpoint->haspos = 0;
+    ptrackpoint->lat = 0;
+    ptrackpoint->lon = 0;
+    ptrackpoint->alt = 0;
+  }
+
+  memcpy((void *)&ptrackpoint->dist, data+16, 4);
+
   ptrackpoint->hr = data[20];
   ptrackpoint->cad = data[21];
   ptrackpoint->u1 = data[22];
@@ -387,13 +406,14 @@ void write_trackpoint(FILE *tcxfile, activity_t *pact, lap_t *plap,
 
   fprintf(tcxfile, "          <Trackpoint>\n");
   fprintf(tcxfile, "            <Time>%s</Time>\n",tbuf);
-  if (ptrackpoint->lat < 90) {
+  if (ptrackpoint->haspos) {
     fprintf(tcxfile, "            <Position>\n");
     fprintf(tcxfile, "              <LatitudeDegrees>%s</LatitudeDegrees>\n", ground(ptrackpoint->lat, 7));
     fprintf(tcxfile, "              <LongitudeDegrees>%s</LongitudeDegrees>\n", ground(ptrackpoint->lon, 7));
     fprintf(tcxfile, "            </Position>\n");
     fprintf(tcxfile, "            <AltitudeMeters>%s</AltitudeMeters>\n", ground(ptrackpoint->alt, 2));
   }
+
   // last trackpoint has utopic distance, 40000km should be enough, hack?
   if (ptrackpoint->dist < (float)40000000) {
     fprintf(tcxfile, "            <DistanceMeters>%s</DistanceMeters>\n", ground(ptrackpoint->dist, 2));
@@ -976,6 +996,7 @@ void trackpoints_decode(ushort bloblen, ushort pkttype, ushort pktlen,
       found_trackpoints += ntrackpoints[i];
       if (ntrackpoints[i] > 0) {
         printf("%d trackpoints for activity %d\n", ntrackpoints[i], i);
+        //        int j = 0;
         //        for (j = 0 ; j < ntrackpoints[i] ; j++) {
         //          if (dbg) {
         //            printtrackpoint(&trackpointbuf[i][j]);
