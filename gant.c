@@ -885,7 +885,11 @@ void laps_decode(ushort bloblen, ushort pkttype, ushort pktlen,
     printf("%d Lap data id: %u %u\n", pkttype,
            antshort(data, doff), antshort(data, doff+2));
     lap = antshort(data, doff);
-    if (lap < MAXLAPS) {
+    if (lap < 0) {
+      printf("Bad lap specified.\n");
+      exit(1);
+    }
+    else if (lap < MAXLAPS) {
       decodelap(&lapbuf[lap], lap, data+doff);
     }
     else {
@@ -955,7 +959,11 @@ void activities_decode(ushort bloblen, ushort pkttype, ushort pktlen,
       printf(" %u", antshort(data, doff+i));
     printf("\n");
     activity = antshort(data, doff);
-    if (activity < MAXACTIVITIES) {
+    if (activity < 0) {
+      printf("Bad activity specified.\n");
+      exit(1);
+    }
+    else if (activity < MAXACTIVITIES) {
       decodeactivity(&activitybuf[activity], activity, &data[doff]);
     } else {
       printf("Not enough activities.");
