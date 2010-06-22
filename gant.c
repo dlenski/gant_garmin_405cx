@@ -284,7 +284,6 @@ garmin_decode_t cmds[] = {
   { "0a000200c2010000", &activities_decode }, // download activities  - 27 (#runs), 990?, 12?
   { "0a00020075000000", &laps_decode }, // download laps - 27 (#laps), 149 laps, 12?
   { "0a00020006000000", &trackpoints_decode }, // download trackpoints - 1510/99(run marker), ..1510,12
-  //  { "0a000200ac020000", &unknown_decode }, // don't seem to need this.
   { "", NULL },
 };
 
@@ -357,6 +356,24 @@ randno(void)
     close(fd);
   }
   return r;
+}
+
+void print_duration(int secs) {
+  int hours = secs / 3600;
+  secs -= (hours * 3600);
+  int mins = secs / 60;
+  secs -= (mins * 60);
+  char *sep = "";
+  if (hours > 0) {
+    printf("%d hours", hours);
+    sep = ", ";
+  }
+  if (mins > 0) {
+    printf("%s%d minutes", sep, mins);
+    sep = ", ";
+  }
+
+  printf("%s%d seconds", sep, secs);
 }
 
 void write_tcx_header(FILE *tcxfile) {
@@ -459,6 +476,7 @@ void write_trackpoint(FILE *tcxfile, activity_t *pact, lap_t *plap,
 void write_output_files() {
   printf("Writing output files.\n");
   int activity = 0;
+  float total_time = 0;
   for (activity = 0; activity < MAXACTIVITIES ; activity++) {
     activity_t *pact = &activitybuf[activity];
     if (pact->activitynum == -1) {
@@ -469,12 +487,13 @@ void write_output_files() {
     char tbuf[100];
     FILE *tcxfile = NULL;
     int lap = 0;
+    float activity_time = 0;
 
     // use first lap starttime as filename
     strftime(tbuf, sizeof tbuf, "%Y-%m-%d-%H%M%S.TCX",
              localtime(&lapbuf[pact->startlap].tv_lap));
     // open file and start with header of xml file
-    printf("Writing output file for activity %d: %s\n", activity, tbuf);
+    printf("Writing output file for activity %d: %s ", activity, tbuf);
     tcxfile = fopen(tbuf, "wt");
     write_tcx_header(tcxfile);
 
@@ -498,6 +517,9 @@ void write_output_files() {
         printf("Attempt to print uninitialized lap %d.\n", lap);
         exit(1);
       }
+
+      activity_time += plap->tsec;
+      total_time += plap->tsec;
 
       strftime(tbuf, sizeof tbuf, "%Y-%m-%dT%H:%M:%SZ", gmtime(&plap->tv_lap));
 
@@ -599,7 +621,16 @@ void write_output_files() {
     // add footer and close file
     write_tcx_footer(tcxfile);
     fclose(tcxfile);
+
+    printf("(");
+    print_duration(activity_time / 100.0);
+    printf(")\n");
   }
+
+
+  printf("Downloaded %d activities; ", nactivities);
+  print_duration(total_time / 100.0);
+  printf(" of data.\n");
 }
 
 
@@ -938,12 +969,12 @@ void activities_decode(ushort bloblen, ushort pkttype, ushort pktlen,
         found_activities++;
       }
     }
-    if (nactivities == found_activities) {
-      printf("All activities received (%d).\n", found_activities);
+    if ((nactivities - nsummarized_activities) == found_activities) {
+      printf("All activities received (%d complete, %d summarized).\n", found_activities, nsummarized_activities);
     }
     else {
       // TODO: retry.
-      printf("Not all activities received; only got %d/%d\n", found_activities, nactivities);
+      printf("Not all activities received; got %d/%d\n", found_activities, nactivities);
       exit(1);
     }
     break;
@@ -1023,7 +1054,7 @@ void trackpoints_decode(ushort bloblen, ushort pkttype, ushort pktlen,
     }
     else {
       // TODO: retry.
-      printf("Not all trackpoints received; only got %d/%d\n", found_trackpoints, ntotal_trackpoints);
+      printf("Not all trackpoints received; got %d/%d\n", found_trackpoints, ntotal_trackpoints);
       exit(1);
     }
     break;
