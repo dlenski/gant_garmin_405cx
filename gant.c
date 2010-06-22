@@ -51,6 +51,7 @@ typedef struct {
 
 activity_t activitybuf[MAXACTIVITIES];
 int nactivities;
+int nsummarized_activities;
 
 void decodeactivity(activity_t *pactivity, int activitynum, uchar *data) {
   pactivity->activitynum = activitynum;
@@ -886,7 +887,7 @@ void laps_decode(ushort bloblen, ushort pkttype, ushort pktlen,
            antshort(data, doff), antshort(data, doff+2));
     lap = antshort(data, doff);
     if (lap < 0) {
-      printf("Bad lap specified.\n");
+      printf("Bad lap specified %d.\n", lap);
       exit(1);
     }
     else if (lap < MAXLAPS) {
@@ -948,6 +949,7 @@ void activities_decode(ushort bloblen, ushort pkttype, ushort pktlen,
     break;
   case 27:
     nactivities = antshort(data, doff);
+    nsummarized_activities = 0;
     printf("%d activities %u\n", pkttype, nactivities);
     break;
   case 990:
@@ -959,9 +961,11 @@ void activities_decode(ushort bloblen, ushort pkttype, ushort pktlen,
       printf(" %u", antshort(data, doff+i));
     printf("\n");
     activity = antshort(data, doff);
+    // summarized activites (all trackpoints have been thrown away) are
+    // represented as activities with -1 activitynums.
     if (activity < 0) {
-      printf("Bad activity specified.\n");
-      exit(1);
+      printf("Summarized activity specified (%d), ignoring.\n", activity);
+      nsummarized_activities++;
     }
     else if (activity < MAXACTIVITIES) {
       decodeactivity(&activitybuf[activity], activity, &data[doff]);
@@ -1012,8 +1016,9 @@ void trackpoints_decode(ushort bloblen, ushort pkttype, ushort pktlen,
         //}
       }
     }
-    // TODO: fix
-    if (ntotal_trackpoints == (found_trackpoints + nactivities)) {
+
+    if (ntotal_trackpoints == (found_trackpoints +
+                               (nactivities - nsummarized_activities))) {
       printf("All trackpoints received (%d).\n", found_trackpoints);
     }
     else {
@@ -1568,6 +1573,7 @@ int main(int ac, char *av[])
     trackpointbuf[i] = NULL;
   }
   nactivities = 0;
+  nsummarized_activities = 0;
   ntotal_trackpoints = 0;
 
   for (i = 0 ; i < MAXLAPS ; i++) {
