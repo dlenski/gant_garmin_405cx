@@ -73,7 +73,7 @@ typedef struct {
   int lapnum;
 
   time_t tv_lap; // antuint(lapbuf[lap], 4);
-  float tsec; // antuint(lapbuf[lap], 8)
+  float tsec; // antuint(lapbuf[lap], 8), multiplied by 100
   int cal; // antshort(lapbuf[lap], 36);
   int hr_av; // lapbuf[lap][38];
   int hr_max; // lapbuf[lap][39];
@@ -92,7 +92,7 @@ lap_t lapbuf[MAXLAPS];
 void decodelap(lap_t *plap, int lapnum, uchar *data) {
   plap->lapnum = lapnum;
   plap->tv_lap = antuint(data, 4) + GARMIN_TIME_EPOCH;
-  plap->tsec = antuint(data, 8);
+  plap->tsec = antuint(data, 8) / 100.0;
   plap->cal = antuint(data, 8);
   plap->cal = antshort(data, 36);
   plap->hr_av = data[38];
@@ -307,7 +307,7 @@ int blsize = 0;
 /* round a float as garmin does it! */
 /* shoot me for writing this! */
 char *
-ground(double d, int decimals)
+ground(double d)
 {
   int neg = 0;
   static char res[30];
@@ -426,15 +426,15 @@ void write_trackpoint(FILE *tcxfile, activity_t *pact, lap_t *plap,
   fprintf(tcxfile, "            <Time>%s</Time>\n",tbuf);
   if (ptrackpoint->haspos) {
     fprintf(tcxfile, "            <Position>\n");
-    fprintf(tcxfile, "              <LatitudeDegrees>%s</LatitudeDegrees>\n", ground(ptrackpoint->lat, 7));
-    fprintf(tcxfile, "              <LongitudeDegrees>%s</LongitudeDegrees>\n", ground(ptrackpoint->lon, 7));
+    fprintf(tcxfile, "              <LatitudeDegrees>%s</LatitudeDegrees>\n", ground(ptrackpoint->lat));
+    fprintf(tcxfile, "              <LongitudeDegrees>%s</LongitudeDegrees>\n", ground(ptrackpoint->lon));
     fprintf(tcxfile, "            </Position>\n");
-    fprintf(tcxfile, "            <AltitudeMeters>%s</AltitudeMeters>\n", ground(ptrackpoint->alt, 2));
+    fprintf(tcxfile, "            <AltitudeMeters>%s</AltitudeMeters>\n", ground(ptrackpoint->alt));
   }
 
   // last trackpoint has utopic distance, 40000km should be enough, hack?
   if (ptrackpoint->dist < (float)40000000) {
-    fprintf(tcxfile, "            <DistanceMeters>%s</DistanceMeters>\n", ground(ptrackpoint->dist, 2));
+    fprintf(tcxfile, "            <DistanceMeters>%s</DistanceMeters>\n", ground(ptrackpoint->dist));
   }
   if (ptrackpoint->hr > 0) {
     fprintf(tcxfile, "            <HeartRateBpm xsi:type=\"HeartRateInBeatsPerMinute_t\">\n");
@@ -476,7 +476,7 @@ void write_trackpoint(FILE *tcxfile, activity_t *pact, lap_t *plap,
 void write_output_files() {
   printf("Writing output files.\n");
   int activity = 0;
-  float total_time = 0;
+  float total_secs = 0;
   for (activity = 0; activity < MAXACTIVITIES ; activity++) {
     activity_t *pact = &activitybuf[activity];
     if (pact->activitynum == -1) {
@@ -487,7 +487,7 @@ void write_output_files() {
     char tbuf[100];
     FILE *tcxfile = NULL;
     int lap = 0;
-    float activity_time = 0;
+    float activity_secs = 0;
 
     // use first lap starttime as filename
     strftime(tbuf, sizeof tbuf, "%Y-%m-%d-%H%M%S.TCX",
@@ -518,15 +518,17 @@ void write_output_files() {
         exit(1);
       }
 
-      activity_time += plap->tsec;
-      total_time += plap->tsec;
+      activity_secs += plap->tsec;
+      total_secs += plap->tsec;
 
       strftime(tbuf, sizeof tbuf, "%Y-%m-%dT%H:%M:%SZ", gmtime(&plap->tv_lap));
 
       fprintf(tcxfile, "      <Lap StartTime=\"%s\">\n", tbuf);
-      fprintf(tcxfile, "        <TotalTimeSeconds>%s</TotalTimeSeconds>\n", ground(plap->tsec/100, 2));
-      fprintf(tcxfile, "        <DistanceMeters>%s</DistanceMeters>\n", ground(plap->dist, 2));
-      fprintf(tcxfile, "        <MaximumSpeed>%s</MaximumSpeed>\n", ground(plap->max_speed, 7));
+      // we only have 2 digits of precision from the data, but garmin
+      // prints them with 7 decimal digits.
+      fprintf(tcxfile, "        <TotalTimeSeconds>%.02f00000</TotalTimeSeconds>\n", plap->tsec);
+      fprintf(tcxfile, "        <DistanceMeters>%s</DistanceMeters>\n", ground(plap->dist));
+      fprintf(tcxfile, "        <MaximumSpeed>%s</MaximumSpeed>\n", ground(plap->max_speed));
       fprintf(tcxfile, "        <Calories>%d</Calories>\n", plap->cal);
       if (plap->hr_av > 0) {
         fprintf(tcxfile, "        <AverageHeartRateBpm xsi:type=\"HeartRateInBeatsPerMinute_t\">\n");
@@ -623,13 +625,13 @@ void write_output_files() {
     fclose(tcxfile);
 
     printf("(");
-    print_duration(activity_time / 100.0);
+    print_duration(activity_secs);
     printf(")\n");
   }
 
 
   printf("Downloaded %d activities; ", nactivities);
-  print_duration(total_time / 100.0);
+  print_duration(total_secs);
   printf(" of data.\n");
 }
 
