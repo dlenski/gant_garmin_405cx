@@ -885,12 +885,6 @@ void laps_decode(ushort bloblen, ushort pkttype, ushort pktlen,
     // don't know what to do with the code here
     // antshort(data, doff);
 
-    // only allow completion if we get packet type 12.
-    if (nacksent > nlastcompletedcmd) {
-      printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
-      nlastcompletedcmd = nacksent;
-    }
-
     // make sure we got all the laps.
     for (i = 0 ; i < MAXLAPS ; i++) {
       if (lapbuf[i].lapnum != -1) {
@@ -902,11 +896,16 @@ void laps_decode(ushort bloblen, ushort pkttype, ushort pktlen,
     }
     if (nlaps == found_laps) {
       printf("All laps received (%d).\n", found_laps);
+
+      // only allow completion if we get packet type 12 and have all the laps.
+      if (nacksent > nlastcompletedcmd) {
+        printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+        nlastcompletedcmd = nacksent;
+      }
     }
     else {
-      // TODO: retry.
-      printf("Not all laps received; only got %d/%d\n", found_laps, nlaps);
-      exit(1);
+      printf("Not all laps received; only got %d/%d. Will retry.\n",
+             found_laps, nlaps);
     }
     break;
   case 27:
@@ -950,13 +949,6 @@ void activities_decode(ushort bloblen, ushort pkttype, ushort pktlen,
       printf(" %u", antshort(data, doff+i));
     printf("\n");
 
-
-    // only allow completion if we get packet type 12.
-    if (nacksent > nlastcompletedcmd) {
-      printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
-      nlastcompletedcmd = nacksent;
-    }
-
     // don't know what to do with the code here
     // antshort(data, doff);
 
@@ -971,11 +963,16 @@ void activities_decode(ushort bloblen, ushort pkttype, ushort pktlen,
     }
     if ((nactivities - nsummarized_activities) == found_activities) {
       printf("All activities received (%d complete, %d summarized).\n", found_activities, nsummarized_activities);
+
+      // only allow completion if we get packet type 12.
+      if (nacksent > nlastcompletedcmd) {
+        printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+        nlastcompletedcmd = nacksent;
+      }
     }
     else {
-      // TODO: retry.
-      printf("Not all activities received; got %d/%d\n", found_activities, nactivities);
-      exit(1);
+      printf("Not all activities received; got %d/%d (%d summarized). Will retry.\n",
+             found_activities, nactivities, nsummarized_activities);
     }
     break;
   case 27:
@@ -1028,12 +1025,6 @@ void trackpoints_decode(ushort bloblen, ushort pkttype, ushort pktlen,
     // don't know what to do with the code here
     // antshort(data, doff);
 
-    // only allow completion if we get packet type 12.
-    if (nacksent > nlastcompletedcmd) {
-      printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
-      nlastcompletedcmd = nacksent;
-    }
-
     // make sure we got all the trackpoints.
     for (i = 0 ; i < MAXACTIVITIES ; i++) {
       found_trackpoints += ntrackpoints[i];
@@ -1051,11 +1042,17 @@ void trackpoints_decode(ushort bloblen, ushort pkttype, ushort pktlen,
     if (ntotal_trackpoints == (found_trackpoints +
                                (nactivities - nsummarized_activities))) {
       printf("All trackpoints received (%d).\n", found_trackpoints);
+
+      // only allow completion if we get packet type 12 and have all
+      // trackpoints.
+      if (nacksent > nlastcompletedcmd) {
+        printf("completed command %d %d\n", nacksent, nlastcompletedcmd);
+        nlastcompletedcmd = nacksent;
+      }
     }
     else {
-      // TODO: retry.
-      printf("Not all trackpoints received; got %d/%d\n", found_trackpoints, ntotal_trackpoints);
-      exit(1);
+      printf("Not all trackpoints received; got %d/%d. Will retry.\n",
+             found_trackpoints, ntotal_trackpoints);
     }
     break;
   // trackpoints are given as a run of trackpoints per activity; they'll
