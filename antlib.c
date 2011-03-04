@@ -353,7 +353,7 @@ void get_data(int fd)
             fprintf(stderr, "no cfn\n");
       }
       srch = next;
-    } else 
+    } else
       break;
   }
   if (next < bufc) {
@@ -409,7 +409,7 @@ ANT_Initf(char *devname, ushort baud)
 {
   struct termios tp;
 
-  fd = open(devname, O_RDWR);
+  fd = open(devname, O_RDWR | O_NDELAY);
   if (fd < 0) {
     perror(devname);
     return 0;
@@ -499,7 +499,7 @@ ANT_SetChannelId(uchar chan, ushort dev, uchar devtype, uchar manid)
 }
 
 uchar
-ANT_SetChannelRFFreq(uchar chan, uchar freq) 
+ANT_SetChannelRFFreq(uchar chan, uchar freq)
 {
   return msg_send2(MESG_CHANNEL_RADIO_FREQ_ID, chan, freq);
 }
