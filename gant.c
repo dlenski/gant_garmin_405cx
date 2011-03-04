@@ -1041,6 +1041,8 @@ void trackpoints_decode(ushort bloblen, ushort pkttype, ushort pktlen,
       }
     }
 
+    // this check fails sometimes-- I think it's due to inconsistencies in
+    // the watch metadata from running out of battery while it's recording.
     if (ntotal_trackpoints == (found_trackpoints +
                                (nactivities - nsummarized_activities))) {
       printf("All trackpoints received (%d).\n", found_trackpoints);
@@ -1053,8 +1055,7 @@ void trackpoints_decode(ushort bloblen, ushort pkttype, ushort pktlen,
       }
     }
     else {
-      printf("Not all trackpoints received; got %d/%d. Will retry.\n",
-             found_trackpoints, ntotal_trackpoints);
+      printf("Not all trackpoints received; got %d/%d (%d activities, %d summarized). Will retry.\n", found_trackpoints, ntotal_trackpoints, nactivities, nsummarized_activities);
     }
     break;
   // trackpoints are given as a run of trackpoints per activity; they'll
