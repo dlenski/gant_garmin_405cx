@@ -27,3 +27,17 @@
 *.i*86
 *.x86_64
 *.hex
+
+.deps/
+Makefile.in
+*~        
+aclocal.*        
+autom4te.cache/
+        compile
+        config.log
+        config.status
+        configure
+        depcomp
+        gant
+        install-sh
+        missing
