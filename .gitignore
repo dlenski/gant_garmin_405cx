@@ -30,14 +30,14 @@
 
 .deps/
 Makefile.in
-*~        
-aclocal.*        
+*~
+aclocal.*
 autom4te.cache/
-        compile
-        config.log
-        config.status
-        configure
-        depcomp
-        gant
-        install-sh
-        missing
+compile
+config.log
+config.status
+configure
+depcomp
+gant
+install-sh
+missing
