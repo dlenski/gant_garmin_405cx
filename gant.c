@@ -1125,7 +1125,7 @@ chevent(uchar chan, uchar event)
 {
   uchar status;
   uchar phase;
-  uint newdata;
+  //uint newdata;
   struct ack_msg ack;
   struct auth_msg auth;
   struct pair_msg pair;
@@ -1136,7 +1136,7 @@ chevent(uchar chan, uchar event)
 
   if (event == EVENT_RX_BROADCAST) {
     status = cbuf[1] & 0xd7;
-    newdata = cbuf[1] & 0x20;
+    //newdata = cbuf[1] & 0x20;
     phase = cbuf[2];
   }
   cid = antuint(cbuf, 4);
